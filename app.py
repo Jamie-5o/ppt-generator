@@ -5,6 +5,7 @@ from pptx import Presentation
 from pptx.util import Inches
 import io
 import json
+import comtypes.client
 
 app = Flask(__name__, template_folder='templates')
 
@@ -15,13 +16,20 @@ TEMPLATE_PATH = os.path.join('templates', 'default_template.pptx')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
+def convert_ppt_to_pdf(ppt_path, pdf_path):
+    powerpoint = comtypes.client.CreateObject("PowerPoint.Application")
+    powerpoint.Visible = 1
+    deck = powerpoint.Presentations.Open(ppt_path, WithWindow=False)
+    deck.SaveAs(pdf_path, 32)  # 32 = PDF
+    deck.Close()
+    powerpoint.Quit()
+
 @app.route('/')
 def home():
     return render_template('index.html')
 
 @app.route('/generate_ppt', methods=['POST'])
 def generate_ppt():
-    # 이미지 저장
     uploaded_files = request.files.getlist('images')
     image_map = {}
     for file in uploaded_files:
@@ -31,7 +39,6 @@ def generate_ppt():
         file.save(path)
         image_map[original_name] = path
 
-    # 프로젝트 데이터 파싱
     project_data = json.loads(request.form.get('project_data', '[]'))
 
     zip_buffer = io.BytesIO()
@@ -40,7 +47,7 @@ def generate_ppt():
             *img_filenames, title = project
             prs = Presentation(TEMPLATE_PATH)
 
-            # 제목 슬라이드 수정
+            # 제목 수정 (폰트 유지)
             for shape in prs.slides[0].shapes:
                 if shape.has_text_frame and "광고 상품 소개서" in shape.text:
                     for para in shape.text_frame.paragraphs:
@@ -48,6 +55,7 @@ def generate_ppt():
                             if "광고 상품 소개서" in run.text:
                                 run.text = f"{title} 광고 상품 소개서"
 
+            # 이미지 추가
             for img_name in img_filenames:
                 img_path = image_map.get(img_name)
                 if not img_path:
@@ -55,14 +63,22 @@ def generate_ppt():
                 slide = prs.slides.add_slide(prs.slide_layouts[6])
                 slide.shapes.add_picture(
                     img_path, Inches(0), Inches(0),
-                    width=prs.slide_width,
-                    height=prs.slide_height
+                    width=prs.slide_width, height=prs.slide_height
                 )
 
+            # 저장 경로
             output_pptx = f"{title}.pptx"
-            output_path = os.path.join(OUTPUT_FOLDER, output_pptx)
-            prs.save(output_path)
-            zipf.write(output_path, arcname=output_pptx)
+            output_pdf = f"{title}.pdf"
+            output_pptx_path = os.path.join(OUTPUT_FOLDER, output_pptx)
+            output_pdf_path = os.path.join(OUTPUT_FOLDER, output_pdf)
+
+            # 저장 및 변환
+            prs.save(output_pptx_path)
+            convert_ppt_to_pdf(os.path.abspath(output_pptx_path), os.path.abspath(output_pdf_path))
+
+            # zip에 추가
+            zipf.write(output_pptx_path, arcname=output_pptx)
+            zipf.write(output_pdf_path, arcname=output_pdf)
 
     zip_buffer.seek(0)
     return send_file(
