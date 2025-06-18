@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>광고 소개서 PPT 자동 생성기</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .project { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
+    .thumbnail { height: 100px; margin: 5px; cursor: pointer; border: 2px solid transparent; }
+    .thumbnail.selected { border-color: #007BFF; }
+  </style>
+</head>
+<body>
+
+  <h2>이미지 업로드</h2>
+  <input type="file" id="imageUpload" multiple accept="image/*">
+  <div id="imagePreview"></div>
+
+  <h2>프로젝트 생성</h2>
+  <button onclick="addProject()">+ 프로젝트 추가</button>
+  <div id="projects"></div>
+
+  <button onclick="submitData()">📤 PPT 생성하기</button>
+
+  <script>
+    let images = [];
+    let projects = [];
+
+    document.getElementById('imageUpload').addEventListener('change', (e) => {
+      images = Array.from(e.target.files);
+      const preview = document.getElementById('imagePreview');
+      preview.innerHTML = '';
+      images.forEach((file, i) => {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.classList.add('thumbnail');
+        img.dataset.index = i;
+        preview.appendChild(img);
+      });
+    });
+
+    function addProject() {
+      if (projects.length >= 10) return alert('최대 10개 프로젝트까지 생성 가능합니다.');
+      const container = document.createElement('div');
+      container.classList.add('project');
+      const index = projects.length;
+      container.innerHTML = `
+        <h3>프로젝트 ${index + 1}</h3>
+        <input type="text" placeholder="광고 상품명 입력" class="productName">
+        <div class="imageGrid"></div>
+      `;
+      document.getElementById('projects').appendChild(container);
+      projects.push({ images: [], name: '' });
+
+      images.forEach((file, i) => {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.classList.add('thumbnail');
+        img.dataset.index = i;
+        img.addEventListener('click', () => {
+          img.classList.toggle('selected');
+        });
+        container.querySelector('.imageGrid').appendChild(img);
+      });
+    }
+
+    async function submitData() {
+      const result = [];
+      const projectDivs = document.querySelectorAll('.project');
+      projectDivs.forEach((proj) => {
+        const name = proj.querySelector('.productName').value;
+        const selected = Array.from(proj.querySelectorAll('.thumbnail.selected'))
+          .map(img => images[img.dataset.index].name);
+        if (selected.length > 0 && name) {
+          result.push([...selected, name]);
+        }
+      });
+
+      if (result.length === 0) {
+        alert("최소 하나 이상의 프로젝트를 완성해주세요!");
+        return;
+      }
+
+      // 1. 이미지 업로드
+      const formData = new FormData();
+      images.forEach(file => formData.append('images', file));
+
+      await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      // 2. PPT 생성 요청
+      await fetch('/generate_ppt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projects: result })
+      })
+      .then(res => res.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '광고소개서.pptx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    }
+  </script>
+
+</body>
+</html>
