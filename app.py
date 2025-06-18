@@ -30,10 +30,12 @@ def generate_ppt():
     uploaded_files = request.files.getlist('images')
     image_map = {}
     for file in uploaded_files:
-        filename = secure_filename(file.filename)
+        original_name = file.filename  # JS가 보내는 이름
+        filename = secure_filename(original_name)
         path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(path)
-        image_map[filename] = path
+        image_map[original_name] = path  # 매핑을 원본 기준으로
+
 
     # 3. 프로젝트 데이터 파싱
     import json
@@ -47,9 +49,13 @@ def generate_ppt():
 
             # 제목 슬라이드 텍스트 수정
             for shape in prs.slides[0].shapes:
-             if shape.has_text_frame:
-                if "골프존 광고 상품 소개서" in shape.text:
-                    shape.text = shape.text.replace("골프존 광고 상품 소개서", title)
+                if shape.has_text_frame:
+                    if "골프존 광고 상품 소개서" in shape.text:
+                        runs = shape.text_frame.paragraphs[0].runs
+                        for run in runs:
+                            if "골프존 광고 상품 소개서" in run.text:
+                                run.text = run.text.replace("골프존 광고 상품 소개서", title)
+
 
             for img_name in img_filenames:
                 img_path = image_map.get(img_name)
