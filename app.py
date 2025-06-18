@@ -51,7 +51,9 @@ def generate_ppt():
             for shape in prs.slides[0].shapes:
                 if shape.has_text_frame:
                     if shape.text.strip() == "골프존 광고 상품 소개서":
-                        shape.text = title
+                        para = shape.text_frame.paragraphs[0]
+                        run = para.runs[0]
+                        run.text = title
 
 
             for img_name in img_filenames:
