@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, render_template
 from werkzeug.utils import secure_filename
 import os
 import zipfile
@@ -7,7 +7,7 @@ from pptx.util import Inches
 import io
 import shutil
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 UPLOAD_FOLDER = 'uploaded_images'
 OUTPUT_FOLDER = 'outputs'
 TEMPLATE_FOLDER = 'template'
