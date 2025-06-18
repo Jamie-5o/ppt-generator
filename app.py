@@ -15,6 +15,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(TEMPLATE_FOLDER, exist_ok=True)
 
+@app.route('/')
+def home():
+    return render_template('index.html')
+
 @app.route('/generate_ppt', methods=['POST'])
 def generate_ppt():
     # 1. 템플릿 저장
