@@ -38,31 +38,38 @@
         preview.appendChild(img);
       });
     });
+    
+function addProject() {
+  if (projects.length >= 10) return alert('최대 10개 프로젝트까지 생성 가능합니다.');
 
-    function addProject() {
-      if (projects.length >= 10) return alert('최대 10개 프로젝트까지 생성 가능합니다.');
-      const container = document.createElement('div');
-      container.classList.add('project');
-      const index = projects.length;
-      container.innerHTML = `
-        <h3>프로젝트 ${index + 1}</h3>
-        <input type="text" placeholder="광고 상품명 입력" class="productName">
-        <div class="imageGrid"></div>
-      `;
-      document.getElementById('projects').appendChild(container);
-      projects.push({ images: [], name: '' });
+  const container = document.createElement('div');
+  container.classList.add('project');
+  const index = projects.length;
 
-      images.forEach((file, i) => {
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(file);
-        img.classList.add('thumbnail');
-        img.dataset.index = i;
-        img.addEventListener('click', () => {
-          img.classList.toggle('selected');
-        });
-        container.querySelector('.imageGrid').appendChild(img);
-      });
-    }
+  container.innerHTML = `
+    <h3>프로젝트 ${index + 1}</h3>
+    <input type="text" placeholder="광고 상품명 입력" class="productName">
+    <div class="imageGrid"></div>
+  `;
+
+  document.getElementById('projects').appendChild(container);
+  projects.push({ images: [], name: '' });
+
+  const imageGrid = container.querySelector('.imageGrid');
+
+  images.forEach((file, i) => {
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    img.classList.add('thumbnail');
+    img.dataset.index = i;
+
+    img.addEventListener('click', () => {
+      img.classList.toggle('selected');
+    });
+
+    imageGrid.appendChild(img);
+  });
+}
 
     async function submitData() {
       const result = [];
