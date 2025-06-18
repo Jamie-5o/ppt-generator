@@ -6,14 +6,15 @@
   <style>
     body { font-family: sans-serif; padding: 20px; }
     .project { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
-    .thumbnail { height: 100px; margin: 5px; cursor: pointer; border: 2px solid transparent; }
+    .thumbnail { height: 200px; margin: 5px; cursor: pointer; border: 2px solid transparent; }
     .thumbnail.selected { border: 3px solid #007BFF; }
   </style>
 </head>
 <body>
 
-  <h2>1. 템플릿 PPT 업로드</h2>
-  <input type="file" id="templateUpload" accept=".pptx">
+  
+  <h2>1. 템플릿 사용 안내</h2>
+  <p>기본 제공 템플릿 <strong>(default_template.pptx)</strong>이 자동으로 사용됩니다. 별도 업로드는 필요하지 않습니다.</p>
 
   <h2>2. 이미지 업로드</h2>
   <input type="file" id="imageUpload" multiple accept="image/*">
@@ -28,11 +29,6 @@
   <script>
     let images = [];
     let projects = [];
-    let templateFile = null;
-
-    document.getElementById('templateUpload').addEventListener('change', (e) => {
-      templateFile = e.target.files[0];
-    });
 
     document.getElementById('imageUpload').addEventListener('change', (e) => {
       images = Array.from(e.target.files);
@@ -91,18 +87,12 @@
         }
       });
 
-      if (!templateFile) {
-        alert("템플릿 파일을 업로드해주세요.");
-        return;
-      }
-
       if (result.length === 0) {
         alert("최소 하나 이상의 프로젝트를 완성해주세요!");
         return;
       }
 
       const formData = new FormData();
-      formData.append('template', templateFile);
       images.forEach(file => formData.append('images', file));
       formData.append('project_data', JSON.stringify(result));
 
