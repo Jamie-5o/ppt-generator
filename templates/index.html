@@ -7,16 +7,19 @@
     body { font-family: sans-serif; padding: 20px; }
     .project { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
     .thumbnail { height: 100px; margin: 5px; cursor: pointer; border: 2px solid transparent; }
-    .thumbnail.selected { border-color: #007BFF; }
+    .thumbnail.selected { border: 3px solid #007BFF; }
   </style>
 </head>
 <body>
 
-  <h2>이미지 업로드</h2>
+  <h2>1. 템플릿 PPT 업로드</h2>
+  <input type="file" id="templateUpload" accept=".pptx">
+
+  <h2>2. 이미지 업로드</h2>
   <input type="file" id="imageUpload" multiple accept="image/*">
   <div id="imagePreview"></div>
 
-  <h2>프로젝트 생성</h2>
+  <h2>3. 프로젝트 생성</h2>
   <button onclick="addProject()">+ 프로젝트 추가</button>
   <div id="projects"></div>
 
@@ -25,6 +28,11 @@
   <script>
     let images = [];
     let projects = [];
+    let templateFile = null;
+
+    document.getElementById('templateUpload').addEventListener('change', (e) => {
+      templateFile = e.target.files[0];
+    });
 
     document.getElementById('imageUpload').addEventListener('change', (e) => {
       images = Array.from(e.target.files);
@@ -38,38 +46,38 @@
         preview.appendChild(img);
       });
     });
-    
-function addProject() {
-  if (projects.length >= 10) return alert('최대 10개 프로젝트까지 생성 가능합니다.');
 
-  const container = document.createElement('div');
-  container.classList.add('project');
-  const index = projects.length;
+    function addProject() {
+      if (projects.length >= 10) return alert('최대 10개 프로젝트까지 생성 가능합니다.');
 
-  container.innerHTML = `
-    <h3>프로젝트 ${index + 1}</h3>
-    <input type="text" placeholder="광고 상품명 입력" class="productName">
-    <div class="imageGrid"></div>
-  `;
+      const container = document.createElement('div');
+      container.classList.add('project');
+      const index = projects.length;
 
-  document.getElementById('projects').appendChild(container);
-  projects.push({ images: [], name: '' });
+      container.innerHTML = `
+        <h3>프로젝트 ${index + 1}</h3>
+        <input type="text" placeholder="광고 상품명 입력" class="productName">
+        <div class="imageGrid"></div>
+      `;
 
-  const imageGrid = container.querySelector('.imageGrid');
+      document.getElementById('projects').appendChild(container);
+      projects.push({ images: [], name: '' });
 
-  images.forEach((file, i) => {
-    const img = document.createElement('img');
-    img.src = URL.createObjectURL(file);
-    img.classList.add('thumbnail');
-    img.dataset.index = i;
+      const imageGrid = container.querySelector('.imageGrid');
 
-    img.addEventListener('click', () => {
-      img.classList.toggle('selected');
-    });
+      images.forEach((file, i) => {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.classList.add('thumbnail');
+        img.dataset.index = i;
 
-    imageGrid.appendChild(img);
-  });
-}
+        img.addEventListener('click', () => {
+          img.classList.toggle('selected');
+        });
+
+        imageGrid.appendChild(img);
+      });
+    }
 
     async function submitData() {
       const result = [];
@@ -83,36 +91,32 @@ function addProject() {
         }
       });
 
+      if (!templateFile) {
+        alert("템플릿 파일을 업로드해주세요.");
+        return;
+      }
+
       if (result.length === 0) {
         alert("최소 하나 이상의 프로젝트를 완성해주세요!");
         return;
       }
 
-      // 1. 이미지 업로드
       const formData = new FormData();
+      formData.append('template', templateFile);
       images.forEach(file => formData.append('images', file));
+      formData.append('project_data', JSON.stringify(result));
 
-      await fetch('/upload', {
+      const res = await fetch('/generate_ppt', {
         method: 'POST',
         body: formData
       });
 
-      // 2. PPT 생성 요청
-      await fetch('/generate_ppt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projects: result })
-      })
-      .then(res => res.blob())
-      .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = '광고소개서.pptx';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      });
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '광고소개서_자동생성.pptx';
+      a.click();
     }
   </script>
 

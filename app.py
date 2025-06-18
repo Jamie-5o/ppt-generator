@@ -1,44 +1,67 @@
-from flask import Flask, request, send_file, jsonify, render_template
+from flask import Flask, request, send_file
 from werkzeug.utils import secure_filename
 import os
+import zipfile
 from pptx import Presentation
 from pptx.util import Inches
+import io
+import shutil
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploaded_images'
 OUTPUT_FOLDER = 'outputs'
+TEMPLATE_FOLDER = 'template'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-
-@app.route('/upload', methods=['POST'])
-def upload_files():
-    uploaded_files = request.files.getlist('images')
-    for file in uploaded_files:
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(UPLOAD_FOLDER, filename))
-    return jsonify({"status": "uploaded"}), 200
+os.makedirs(TEMPLATE_FOLDER, exist_ok=True)
 
 @app.route('/generate_ppt', methods=['POST'])
 def generate_ppt():
-    data = request.json
-    variable_images_list = data.get("projects", [])
-    output_path = os.path.join(OUTPUT_FOLDER, "result.pptx")
-    prs = Presentation()
+    # 1. 템플릿 저장
+    template_file = request.files['template']
+    template_path = os.path.join(TEMPLATE_FOLDER, secure_filename(template_file.filename))
+    template_file.save(template_path)
 
-    for image_group in variable_images_list:
-        *img_filenames, title = image_group
-        prs.slides.add_slide(prs.slide_layouts[5]).shapes.title.text = title
-        for img_name in img_filenames:
-            img_path = os.path.join(UPLOAD_FOLDER, img_name)
-            slide = prs.slides.add_slide(prs.slide_layouts[6])
-            slide.shapes.add_picture(img_path, Inches(1), Inches(1), width=Inches(8))
+    # 2. 이미지 저장
+    uploaded_files = request.files.getlist('images')
+    image_map = {}
+    for file in uploaded_files:
+        filename = secure_filename(file.filename)
+        path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(path)
+        image_map[filename] = path
 
-    prs.save(output_path)
-    return send_file(output_path, as_attachment=True)
+    # 3. 프로젝트 데이터 파싱
+    import json
+    project_data = json.loads(request.form.get('project_data', '[]'))
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w') as zipf:
+        for project in project_data:
+            *img_filenames, title = project
+            prs = Presentation(template_path)
+
+            # 제목 슬라이드 텍스트 수정
+            for shape in prs.slides[0].shapes:
+                if shape.has_text_frame and "광고 상품 소개서" in shape.text:
+                    shape.text = title
+                    break
+
+            for img_name in img_filenames:
+                img_path = image_map.get(img_name)
+                if not img_path: continue
+                slide = prs.slides.add_slide(prs.slide_layouts[6])
+                slide.shapes.add_picture(img_path, Inches(0), Inches(0), width=prs.slide_width, height=prs.slide_height)
+
+            output_pptx = f"{title}.pptx"
+            output_path = os.path.join(OUTPUT_FOLDER, output_pptx)
+            prs.save(output_path)
+
+            # zip에 추가
+            zipf.write(output_path, arcname=output_pptx)
+
+    zip_buffer.seek(0)
+    return send_file(zip_buffer, as_attachment=True, download_name='광고소개서_모음.zip', mimetype='application/zip')
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
