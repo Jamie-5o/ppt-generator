@@ -47,9 +47,9 @@ def generate_ppt():
 
             # 제목 슬라이드 텍스트 수정
             for shape in prs.slides[0].shapes:
-                if shape.has_text_frame and "광고 상품 소개서" in shape.text:
-                    shape.text = title
-                    break
+             if shape.has_text_frame:
+                if "골프존 광고 상품 소개서" in shape.text:
+                    shape.text = shape.text.replace("골프존 광고 상품 소개서", title)
 
             for img_name in img_filenames:
                 img_path = image_map.get(img_name)
