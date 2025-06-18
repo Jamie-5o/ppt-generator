@@ -43,8 +43,10 @@ def generate_ppt():
             # 제목 슬라이드 수정
             for shape in prs.slides[0].shapes:
                 if shape.has_text_frame and "광고 상품 소개서" in shape.text:
-                    shape.text = f"{title} 광고 상품 소개서"
-                    break
+                    for para in shape.text_frame.paragraphs:
+                        for run in para.runs:
+                            if "광고 상품 소개서" in run.text:
+                                run.text = f"{title} 광고 상품 소개서"
 
             for img_name in img_filenames:
                 img_path = image_map.get(img_name)
