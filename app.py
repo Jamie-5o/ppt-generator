@@ -5,15 +5,11 @@ from pptx import Presentation
 from pptx.util import Inches
 import io
 import json
+import gc
 
 app = Flask(__name__, template_folder='templates')
 
-UPLOAD_FOLDER = 'uploaded_images'
-OUTPUT_FOLDER = 'outputs'
 TEMPLATE_PATH = os.path.join('templates', 'default_template.pptx')
-
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 @app.route('/')
 def home():
@@ -21,17 +17,9 @@ def home():
 
 @app.route('/generate_ppt', methods=['POST'])
 def generate_ppt():
-    # 이미지 저장
     uploaded_files = request.files.getlist('images')
-    image_map = {}
-    for file in uploaded_files:
-        original_name = file.filename
-        filename = os.path.basename(original_name)
-        path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(path)
-        image_map[original_name] = path
+    image_map = {f.filename: f.read() for f in uploaded_files}
 
-    # 프로젝트 데이터 파싱
     project_data = json.loads(request.form.get('project_data', '[]'))
 
     zip_buffer = io.BytesIO()
@@ -39,10 +27,8 @@ def generate_ppt():
         for project in project_data:
             *img_filenames, title = project
             prs = Presentation(TEMPLATE_PATH)
-
             title_text = f"{title} 광고 상품 소개서"
 
-            # 제목 슬라이드 수정
             for shape in prs.slides[0].shapes:
                 if shape.has_text_frame and "광고 상품 소개서" in shape.text:
                     for para in shape.text_frame.paragraphs:
@@ -50,22 +36,25 @@ def generate_ppt():
                             if "광고 상품 소개서" in run.text:
                                 run.text = title_text
 
-            # 이미지 삽입
             for img_name in img_filenames:
-                img_path = image_map.get(img_name)
-                if not img_path:
+                img_bytes = image_map.get(img_name)
+                if not img_bytes:
                     continue
+                img_stream = io.BytesIO(img_bytes)
                 slide = prs.slides.add_slide(prs.slide_layouts[6])
                 slide.shapes.add_picture(
-                    img_path, Inches(0), Inches(0),
+                    img_stream, Inches(0), Inches(0),
                     width=prs.slide_width,
                     height=prs.slide_height
                 )
 
-            output_pptx = f"{title_text}.pptx"
-            output_path = os.path.join(OUTPUT_FOLDER, output_pptx)
-            prs.save(output_path)
-            zipf.write(output_path, arcname=output_pptx)
+            ppt_bytes = io.BytesIO()
+            prs.save(ppt_bytes)
+            ppt_bytes.seek(0)
+            zipf.writestr(f"{title_text}.pptx", ppt_bytes.read())
+
+            del prs, ppt_bytes
+            gc.collect()
 
     zip_buffer.seek(0)
     return send_file(
